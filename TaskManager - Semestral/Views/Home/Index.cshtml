@@ -1,26 +1,208 @@
-﻿<main>
-    <section class="row" aria-labelledby="aspnetTitle">
-        <h1 id="aspnetTitle">ASP.NET</h1>
-        <p class="lead">ASP.NET is a free web framework for building great Web sites and Web applications using HTML, CSS, and JavaScript.</p>
-        <p><a href="https://asp.net" class="btn btn-primary btn-md">Learn more &raquo;</a></p>
-    </section>
-    <div class="row">
-        <section class="col-md-4" aria-labelledby="gettingStartedTitle">
-            <h2 id="gettingStartedTitle">Getting started</h2>
-            <p>ASP.NET Web API is a framework that makes it easy to build HTTP services that reach
-            a broad range of clients, including browsers and mobile devices. ASP.NET Web API
-            is an ideal platform for building RESTful applications on the .NET Framework.</p>
-            <p><a class="btn btn-outline-dark" href="https://go.microsoft.com/fwlink/?LinkId=301870">Learn more &raquo;</a></p>
-        </section>
-        <section class="col-md-4" aria-labelledby="librariesTitle">
-            <h2 id="librariesTitle">Get more libraries</h2>
-            <p>NuGet is a free Visual Studio extension that makes it easy to add, remove, and update libraries and tools in Visual Studio projects.</p>
-            <p><a class="btn btn-outline-dark" href="https://go.microsoft.com/fwlink/?LinkId=301871">Learn more &raquo;</a></p>
-        </section>
-        <section class="col-md-4" aria-labelledby="hostingTitle">
-            <h2 id="hostingTitle">Web Hosting</h2>
-            <p>You can easily find a web hosting company that offers the right mix of features and price for your applications.</p>
-            <p><a class="btn btn-outline-dark" href="https://go.microsoft.com/fwlink/?LinkId=301872">Learn more &raquo;</a></p>
-        </section>>
+﻿@{
+    ViewBag.Title = "Pagina Inicio";
+}
+
+<h2>TaskManager</h2>
+
+<div id="task-boards">
+    <div id="pending-tasks" class="task-board">
+        <h3>Pendientes</h3>
+        <ul></ul>
     </div>
-</main>
+    <div id="in-process-tasks" class="task-board">
+        <h3>En Proceso</h3>
+        <ul></ul>
+    </div>
+    <div id="completed-tasks" class="task-board">
+        <h3>Completados</h3>
+        <ul></ul>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+
+            $.getJSON("/api/tasks", function (data) {
+                $.each(data, function (index, task) {
+                    var $taskItem = $("<li></li>");
+                    $taskItem.append($("<span class='task-title'>" + task.Title + "</span>"));
+
+                    // Only append the button if the task is not completed
+                    if (task.Status !== "Completado") {
+                        $taskItem.append($("<button class='btn-next-status'> ▶️ </button>").data("taskid", task.TaskID).data("currentstatus", task.Status));
+                    }
+
+                    switch (task.Status) {
+                        case "Pendiente":
+                            $("#pending-tasks ul").append($taskItem);
+                            break;
+                        case "En Proceso":
+                            $("#in-process-tasks ul").append($taskItem);
+                            break;
+                        case "Completado":
+                            $("#completed-tasks ul").append($taskItem);
+                            break;
+                    }
+                });
+            });
+
+            // Handle "Next Status" button click
+            $(document).on("click", ".btn-next-status", function () {
+                var taskId = $(this).data("taskid");
+                var currentStatus = $(this).data("currentstatus");
+                var nextStatus = getNextStatus(currentStatus);
+                if (!nextStatus) {
+                    alert("No se puede mover al siguiente estado.");
+                    return;
+                }
+                // Fetch the current task details
+                $.getJSON("/api/tasks/" + taskId, function (task) {
+                    task.Status = nextStatus;
+                    // Send the updated task to the API
+                    $.ajax({
+                        url: "/api/tasks/" + taskId,
+                        type: "PUT",
+                        contentType: "application/json",
+                        data: JSON.stringify(task),
+                        success: function (response) {
+                            alert("Estado de la tarea actualizado correctamente.");
+                            // Refresh the task lists
+                            refreshTaskLists();
+                        },
+                        error: function (xhr, status, error) {
+                            alert("Error al actualizar el estado de la tarea.");
+                        }
+                    });
+                });
+            });
+
+            // Function to get the next status
+            function getNextStatus(currentStatus) {
+                var statusOrder = ["Pendiente", "En Proceso", "Completado"];
+                var currentIndex = statusOrder.indexOf(currentStatus);
+                if (currentIndex < 0 || currentIndex >= statusOrder.length - 1) {
+                    return null; // Cannot move to next status
+                }
+                return statusOrder[currentIndex + 1];
+            }
+
+            // Function to refresh task lists
+            function refreshTaskLists() {
+                $.getJSON("/api/tasks", function (data) {
+                    $("#pending-tasks ul").empty();
+                    $("#in-process-tasks ul").empty();
+                    $("#completed-tasks ul").empty();
+                    $.each(data, function (index, task) {
+                        var $taskItem = $("<li></li>");
+                        $taskItem.append($("<span class='task-title'>" + task.Title + "</span>"));
+
+                        // Only append the button if the task is not completed
+                        if (task.Status !== "Completado") {
+                            $taskItem.append($("<button class='btn-next-status'> ▶️ </button>").data("taskid", task.TaskID).data("currentstatus", task.Status));
+                        }
+
+                        switch (task.Status) {
+                            case "Pendiente":
+                                $("#pending-tasks ul").append($taskItem);
+                                break;
+                            case "En Proceso":
+                                $("#in-process-tasks ul").append($taskItem);
+                                break;
+                            case "Completado":
+                                $("#completed-tasks ul").append($taskItem);
+                                break;
+                        }
+                    });
+                });
+            }
+        });
+    </script>
+}
+
+<style>
+    body, ul, li {
+    margin: 0;
+    padding: 0;
+    }
+
+    h2 {
+        text-align: center;
+        font-size: 2.5rem;
+        color: #333;
+        margin: 20px 0;
+    }
+
+
+    #task-boards {
+    display: flex;
+    justify-content: space-around;
+    }
+
+    .task-board {
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    margin: 20px;
+    width: 30%;
+    }
+
+    .task-board h3 {
+    background-color: #e0e0e0;
+    padding: 15px;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    color: #333;
+    font-size: 20px;
+    }
+
+    .task-board ul {
+    list-style: none;
+    padding: 0;
+    }
+
+    .task-board li {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid #ddd;
+    padding: 10px 15px;
+    transition: background-color 0.3s ease;
+    }
+
+    .task-board li:hover {
+    background-color: #e0e0e0;
+    }
+
+    .task-title {
+    font-size: 16px;
+    color: #555;
+    flex: 1;
+    margin-right: 10px;
+    }
+
+    .btn-next-status {
+        background-color: #2196f3;
+        color: #fff;
+        border: none;
+        padding: 5px 10px;
+        border-radius: 4px;
+        cursor: pointer;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .btn-next-status:hover {
+        background-color: #1976d2;
+    }
+
+    #pending-tasks {
+        background-color: #e0f7fa; /* Light blue */
+    }
+
+    #in-process-tasks {
+        background-color: #fff9c4; /* Light yellow */
+    }
+
+    #completed-tasks {
+        background-color: #e6f5d0; /* Light green */
+    }
+</style>

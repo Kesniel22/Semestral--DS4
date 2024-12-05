@@ -1,0 +1,105 @@
+﻿@{
+    ViewBag.Title = "Eliminar Tarea";
+}
+
+<h2>Eliminar Tarea</h2>
+
+<div class="task-container">
+    <ul id="task-list"></ul>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+            // Fetch tasks and display them with additional information and delete buttons
+            $.getJSON("/api/tasks", function (data) {
+                $.each(data, function (index, task) {
+                    // Format DueDate
+                    var dueDate = new Date(task.DueDate).toLocaleDateString();
+                    var $taskItem = $("<li>" +
+                        "<div class='task-info'>" +
+                        "<h3>" + task.Title + "</h3>" +
+                        "<p><strong>Due Date:</strong> " + dueDate + "</p>" +
+                        "<p><strong>Status:</strong> " + task.Status + "</p>" +
+                        "</div>" +
+                        "<button class='delete-btn' data-id='" + task.TaskID + "'>Eliminar</button>" +
+                        "</li>");
+                    $("#task-list").append($taskItem);
+                });
+            });
+
+            // Handle delete button click
+            $(document).on("click", ".delete-btn", function () {
+                var taskId = $(this).data("id");
+                if (confirm("¿Está seguro de eliminar esta tarea?")) {
+                    $.ajax({
+                        url: "/api/tasks/" + taskId,
+                        type: "DELETE",
+                        success: function (response) {
+                            alert("Tarea eliminada correctamente.");
+                            location.reload();
+                        },
+                        error: function (xhr, status, error) {
+                            alert("Error al eliminar la tarea.");
+                        }
+                    });
+                }
+            });
+        });
+    </script>
+}
+
+<style>
+    .task-container {
+    max-width: 600px;
+    margin: 20px auto;
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    h2 {
+        text-align: center;
+        font-size: 2.5rem;
+        color: #333;
+        margin: 20px 0;
+    }
+    #task-list {
+    list-style: none;
+    padding: 0;
+    }
+    #task-list li {
+        margin: 10px 0;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 10px;
+    }
+
+    .task-info {
+    margin-right: 100px; 
+    }
+
+    .task-info h3 {
+        margin: 0;
+    }
+
+    .task-info p {
+        margin: 5px 0 0 0;
+        font-size: 0.9em;
+        color: #666;
+    }
+
+    .delete-btn {
+    float: right;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    }
+
+    .delete-btn:hover {
+        background-color: #c82333;
+    }
+</style>
+

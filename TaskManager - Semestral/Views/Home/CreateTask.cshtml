@@ -1,0 +1,111 @@
+﻿
+@{
+    ViewBag.Title = "Nueva Tarea";
+}
+
+<h2>Crear Nueva Tarea</h2>
+
+<form id="create-task-form">
+    <div class="title-card">
+        <label for="title">Título:</label>
+        <input type="text" id="title" name="title" required />
+    </div>
+    <div class="description-card">
+        <label for="description">Descripción:</label>
+        <textarea id="description" name="description"></textarea>
+    </div>
+    <div class="date-card">
+        <label for="dueDate">Fecha de Vencimiento:</label>
+        <input type="datetime-local" id="dueDate" name="dueDate" required />
+    </div>
+    <button type="submit">Crear Tarea</button>
+</form>
+
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+            $("#create-task-form").submit(function (e) {
+                e.preventDefault();
+                var task = {
+                    Title: $("#title").val(),
+                    Description: $("#description").val(),
+                    DueDate: $("#dueDate").val(),
+                    Status: "Pendiente"
+                };
+                $.ajax({
+                    url: "/api/tasks",
+                    type: "POST",
+                    contentType: "application/json",
+                    data: JSON.stringify(task),
+                    success: function (response) {
+                        alert("Tarea creada correctamente.");
+                        $("#create-task-form")[0].reset();
+                    },
+                    error: function (xhr, status, error) {
+                        alert("Error al crear la tarea.");
+                    }
+                });
+            });
+        });
+    </script>
+}
+
+<style>
+    form {
+        background-color: #fff;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        width: 100%;
+        max-width: 400px;
+    }
+
+    h2 {
+        text-align: center;
+        font-size: 2.5rem;
+        color: #333;
+        margin: 20px 0;
+    }
+
+    .title-card,
+    .description-card,
+    .date-card {
+        display: flex;
+        flex-direction: column;
+        margin-bottom: 15px;
+    }
+
+    label {
+        font-size: 14px;
+        color: #666;
+        margin-bottom: 5px;
+    }
+
+    input, textarea {
+        padding: 10px;
+        font-size: 16px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        background-color: #fafafa;
+        outline: none;
+    }
+
+        input:focus, textarea:focus {
+            border-color: #888;
+        }
+
+    button {
+        background-color: #555;
+        color: #fff;
+        padding: 10px;
+        border: none;
+        border-radius: 4px;
+        font-size: 16px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+        button:hover {
+            background-color: #333;
+        }
+</style>

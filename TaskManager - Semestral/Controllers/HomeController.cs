@@ -7,14 +7,18 @@ namespace TaskManager___Semestral.Controllers
         // Página de inicio del proyecto
         public ActionResult Index()
         {
-            ViewBag.Title = "Gestor de Tareas - Inicio";
+            ViewBag.Title = "Pagina Inicio";
+            return View();
+        }
+        public ActionResult CreateTask()
+        {
+            ViewBag.Title = "Nueva Tarea";
             return View();
         }
 
-        // Vista de documentación de la API
-        public ActionResult ApiDocumentation()
+        public ActionResult DeleteTask()
         {
-            ViewBag.Title = "Documentación de la API";
+            ViewBag.Title = "Eliminar Tarea";
             return View();
         }
     }

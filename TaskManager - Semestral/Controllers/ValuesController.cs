@@ -1,7 +1,9 @@
 ﻿using System.Collections.Generic;
-using System.Web.Http;
 using System.Data.SqlClient;
 using System.Configuration;
+using System.Web.Http;
+using System;
+using TaskManager___Semestral.Models;
 
 namespace TaskManager___Semestral.Controllers
 {
@@ -14,67 +16,148 @@ namespace TaskManager___Semestral.Controllers
         [Route("api/tasks")]
         public IHttpActionResult GetAllTasks()
         {
-            List<object> tasks = new List<object>();
-            using (SqlConnection connection = new SqlConnection(connectionString))
+            try
             {
-                SqlCommand command = new SqlCommand("GetAllTasks", connection)
+                List<TaskManager> tasks = new List<TaskManager>();
+                using (SqlConnection connection = new SqlConnection(connectionString))
                 {
-                    CommandType = System.Data.CommandType.StoredProcedure
-                };
-                connection.Open();
-                SqlDataReader reader = command.ExecuteReader();
-                while (reader.Read())
-                {
-                    tasks.Add(new
+                    string sql = "SELECT * FROM Tasks ORDER BY DueDate ASC";
+                    SqlCommand command = new SqlCommand(sql, connection);
+                    connection.Open();
+                    SqlDataReader reader = command.ExecuteReader();
+                    while (reader.Read())
                     {
-                        Id = reader["TaskId"],
-                        Name = reader["TaskName"],
-                        Description = reader["Description"],
-                        IsCompleted = reader["IsCompleted"]
-                    });
+                        tasks.Add(new TaskManager
+                        {
+                            TaskID = (int)reader["TaskID"],
+                            Title = (string)reader["Title"],
+                            Description = (string)reader["Description"],
+                            DueDate = (DateTime)reader["DueDate"],
+                            CreatedDate = (DateTime)reader["CreatedDate"],
+                            Status = (string)reader["Status"]
+                        });
+                    }
                 }
+                return Ok(tasks);
             }
-            return Ok(tasks);
+            catch (Exception ex)
+            {
+                return InternalServerError(ex);
+            }
         }
 
         // Crear una nueva tarea
         [HttpPost]
         [Route("api/tasks")]
-        public IHttpActionResult CreateTask([FromBody] dynamic task)
+        public IHttpActionResult CreateTask([FromBody] TaskManager task)
         {
-            using (SqlConnection connection = new SqlConnection(connectionString))
+            if (!ModelState.IsValid)
             {
-                SqlCommand command = new SqlCommand("InsertTask", connection)
-                {
-                    CommandType = System.Data.CommandType.StoredProcedure
-                };
-                command.Parameters.AddWithValue("@TaskName", (string)task.TaskName);
-                command.Parameters.AddWithValue("@Description", (string)task.Description);
-                command.Parameters.AddWithValue("@IsCompleted", (bool)task.IsCompleted);
-                connection.Open();
-                command.ExecuteNonQuery();
+                return BadRequest(ModelState);
             }
-            return Ok("Tarea creada correctamente");
+
+            if (task.Status != "Completado" && task.Status != "En Proceso" && task.Status != "Pendiente")
+            {
+                return BadRequest("Invalid status value.");
+            }
+
+            try
+            {
+                using (SqlConnection connection = new SqlConnection(connectionString))
+                {
+                    string sql = "INSERT INTO Tasks (Title, Description, DueDate, Status) VALUES (@Title, @Description, @DueDate, @Status)";
+                    SqlCommand command = new SqlCommand(sql, connection);
+                    command.Parameters.AddWithValue("@Title", task.Title);
+                    command.Parameters.AddWithValue("@Description", task.Description);
+                    command.Parameters.AddWithValue("@DueDate", task.DueDate);
+                    command.Parameters.AddWithValue("@Status", task.Status);
+                    connection.Open();
+                    command.ExecuteNonQuery();
+                }
+                return Ok("Tarea creada correctamente");
+            }
+            catch (Exception ex)
+            {
+                return InternalServerError(ex);
+            }
         }
 
         // Actualizar una tarea
         [HttpPut]
         [Route("api/tasks/{id}")]
-        public IHttpActionResult UpdateTask([FromBody] dynamic task)
+        public IHttpActionResult UpdateTask(int id, [FromBody] TaskManager task)
         {
-            using (SqlConnection connection = new SqlConnection(connectionString))
+            if (!ModelState.IsValid)
             {
-                SqlCommand command = new SqlCommand("UpdateTask", connection)
-                {
-                    CommandType = System.Data.CommandType.StoredProcedure
-                };
-                command.Parameters.AddWithValue("@TaskName", (string)task.TaskName);
-                command.Parameters.AddWithValue("@Description", (string)task.Description);
-                command.Parameters.AddWithValue("@IsCompleted", (bool)task.IsCompleted);
-                connection.Open();
-                command.ExecuteNonQuery();
+                return BadRequest(ModelState);
             }
-            return Ok("Tarea actualizada correctamente");
+
+            if (task.Status != null && task.Status != "Completado" && task.Status != "En Proceso" && task.Status != "Pendiente")
+            {
+                return BadRequest("Valor de estado no válido.");
+            }
+
+            try
+            {
+                using (SqlConnection connection = new SqlConnection(connectionString))
+                {
+                    string sql = "UPDATE Tasks SET ";
+                    List<SqlParameter> parameters = new List<SqlParameter>();
+                    bool hasUpdates = false;
+
+                    if (!string.IsNullOrEmpty(task.Title))
+                    {
+                        sql += "Title = @Title, ";
+                        parameters.Add(new SqlParameter("@Title", task.Title));
+                        hasUpdates = true;
+                    }
+                    if (!string.IsNullOrEmpty(task.Description))
+                    {
+                        sql += "Description = @Description, ";
+                        parameters.Add(new SqlParameter("@Description", task.Description));
+                        hasUpdates = true;
+                    }
+                    if (task.DueDate != default(DateTime))
+                    {
+                        sql += "DueDate = @DueDate, ";
+                        parameters.Add(new SqlParameter("@DueDate", task.DueDate));
+                        hasUpdates = true;
+                    }
+                    if (!string.IsNullOrEmpty(task.Status))
+                    {
+                        sql += "Status = @Status, ";
+                        parameters.Add(new SqlParameter("@Status", task.Status));
+                        hasUpdates = true;
+                    }
+
+                    if (hasUpdates)
+                    {
+                        // Remove the trailing comma
+                        sql = sql.TrimEnd(',', ' ');
+                        sql += " WHERE TaskID = @TaskID";
+                        parameters.Add(new SqlParameter("@TaskID", id));
+
+                        SqlCommand command = new SqlCommand(sql, connection);
+                        command.Parameters.AddRange(parameters.ToArray());
+                        connection.Open();
+                        int rowsAffected = command.ExecuteNonQuery();
+                        if (rowsAffected == 0)
+                        {
+                            return NotFound();
+                        }
+                    }
+                    else
+                    {
+                        // No fields to update
+                        return Ok("No hay cambios para actualizar.");
+                    }
+                }
+                return Ok("Tarea actualizada correctamente.");
+            }
+            catch (Exception ex)
+            {
+                return InternalServerError(ex);
+            }
         }
 
         // Eliminar una tarea
@@ -82,17 +165,64 @@ namespace TaskManager___Semestral.Controllers
         [Route("api/tasks/{id}")]
         public IHttpActionResult DeleteTask(int id)
         {
+            try
+            {
+                using (SqlConnection connection = new SqlConnection(connectionString))
+                {
+                    // Check if the task exists
+                    string checkSql = "SELECT COUNT(*) FROM Tasks WHERE TaskID = @TaskID";
+                    SqlCommand checkCommand = new SqlCommand(checkSql, connection);
+                    checkCommand.Parameters.AddWithValue("@TaskID", id);
+                    connection.Open();
+                    int count = (int)checkCommand.ExecuteScalar();
+                    if (count == 0)
+                    {
+                        return NotFound();
+                    }
+
+                    // Proceed to delete
+                    string deleteSql = "DELETE FROM Tasks WHERE TaskID = @TaskID";
+                    SqlCommand deleteCommand = new SqlCommand(deleteSql, connection);
+                    deleteCommand.Parameters.AddWithValue("@TaskID", id);
+                    deleteCommand.ExecuteNonQuery();
+                }
+                return Ok("Tarea eliminada correctamente");
+            }
+            catch (Exception ex)
+            {
+                return InternalServerError(ex);
+            }
+        }
+
+
+        [HttpGet]
+        [Route("api/tasks/{id}")]
+        public IHttpActionResult GetTask(int id)
+        {
             using (SqlConnection connection = new SqlConnection(connectionString))
             {
-                SqlCommand command = new SqlCommand("DeleteTask", connection)
-                {
-                    CommandType = System.Data.CommandType.StoredProcedure
-                };
-                command.Parameters.AddWithValue("@TaskId", id);
+                string sql = "SELECT * FROM Tasks WHERE TaskID = @TaskID";
+                SqlCommand command = new SqlCommand(sql, connection);
+                command.Parameters.AddWithValue("@TaskID", id);
                 connection.Open();
-                command.ExecuteNonQuery();
+                SqlDataReader reader = command.ExecuteReader();
+                if (reader.Read())
+                {
+                    TaskManager task = new TaskManager
+                    {
+                        TaskID = (int)reader["TaskID"],
+                        Title = (string)reader["Title"],
+                        Description = (string)reader["Description"],
+                        DueDate = (DateTime)reader["DueDate"],
+                        Status = (string)reader["Status"]
+                    };
+                    return Ok(task);
+                }
+                else
+                {
+                    return NotFound();
+                }
             }
-            return Ok("Tarea eliminada correctamente");
         }
     }
 }
